@@ -7,12 +7,13 @@ Created on Mon Mar 18 14:39:39 2024
 
 import pandas as pd
 
-df = pd.read_csv('C:/Users/UWTUCANMag/Desktop/MSR/MCCDAQ/data_2024-03-24_21-43-50.csv')
+df = pd.read_csv('C:/Users/mlavvaf/Desktop/Maedeh/MCCDAQ/data_files/data_2024-04-02_15-47-22.csv')
+# df = df[5:]
 
 print(df.head())
 
-df.plot(x='Time', y='Channel 0')
-# df['Channel 0'].plot()
-# df['Channel 2'].plot()
-# df['Channel 3'].plot()
+# Extract column labels for all channels
+channels = ['Channel {}'.format(i) for i in range(1)]
 
+# Plot all channels
+df.plot(x='Time', y=channels).grid()

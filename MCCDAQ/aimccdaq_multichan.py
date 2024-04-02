@@ -325,6 +325,7 @@ class DataAcquisition:
             print(f"Data saved to {self.file_name} successfully.")
         else:
             print("No data available to save.")
+        
 
 
 if __name__ == "__main__":
@@ -334,7 +335,7 @@ if __name__ == "__main__":
     dur = 1
     num_chan = 3
     script_directory = os.path.dirname(os.path.abspath(sys.argv[0]))
-    directory_path = os.path.join(script_directory, "data_files")
+    directory_path = os.path.join(script_directory, "..", "data_files")
     data_acquisition = DataAcquisition(board_num, rate, dur, num_chan)
     data_acquisition.device_detection(board_num)
     data_acquisition.setup()
