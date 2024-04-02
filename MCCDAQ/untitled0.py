@@ -7,8 +7,8 @@ Created on Mon Mar 18 14:39:39 2024
 
 import pandas as pd
 
-df = pd.read_csv('C:/Users/mlavvaf/Desktop/Maedeh/MCCDAQ/data_files/data_2024-04-02_15-47-22.csv')
-# df = df[5:]
+df = pd.read_csv('C:/Users/mlavvaf/Desktop/Maedeh/MCCDAQ/data_files/data_2024-04-02_16-42-30.csv')
+df = df[25:]
 
 print(df.head())
 
