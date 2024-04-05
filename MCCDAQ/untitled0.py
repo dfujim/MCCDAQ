@@ -6,14 +6,24 @@ Created on Mon Mar 18 14:39:39 2024
 """
 
 import pandas as pd
+import matplotlib.pyplot as plt
 
-df = pd.read_csv('C:/Users/mlavvaf/Desktop/Maedeh/MCCDAQ/data_files/data_2024-04-02_16-42-30.csv')
-df = df[25:]
+# Read the CSV file into a DataFrame, skipping any rows that start with '#'
+df = pd.read_csv('C:/Users/mlavvaf/Desktop/Maedeh/MCCDAQ/data_files/data_2024-04-05_15-52-19.csv',
+                 comment='#')
 
-print(df.head())
+# Plot every column against the "Time" column
+for column in df.columns:
+    if column != 'Time (s)':  # Skip plotting against the "Time" column itself
+        plt.plot(df['Time (s)'], df[column], label=column)
 
-# Extract column labels for all channels
-channels = ['Channel {}'.format(i) for i in range(1)]
+# Add labels and legend
+plt.xlabel('Time (s)')
+plt.ylabel('Value')
+plt.legend()
+plt.grid()
 
-# Plot all channels
-df.plot(x='Time', y=channels).grid()
+# Show the plot
+plt.show()
+
+
