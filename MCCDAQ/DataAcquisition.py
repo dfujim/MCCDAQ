@@ -23,29 +23,21 @@ import threading
 
 
 class DataAcquisition(object):
-    
-    channel_labels = {"CH0H": "FG",
-                      "CH0L": "Ground",
-                      "CH1H": "Battery",
-                      # Add more channel labels as needed
-                      }
 
-    def __init__(self, rate=10000, dur=1, **setting):
+    def __init__(self, rate=10000, dur=31, **setting):
         """Initialize parameters.
 
         Parameters
         ----------
-        board_num : int
-            Board number provided by InstaCal software.
+        rate : int, optional
+            Sample rate in Samples/second. The default is 10000.
 
-        rate : int
-            Sample rate in Samples/second.
+        dur : int, optional
+            Total time of taking every chunk of data. The default is 1.
 
-        dur : int Optional
-            Total time of taking every chunk of data. The default is 3.
-
-        num_chan : int
-            Number of AI channels taking data.
+        **setting : dict
+            Board number and number of channels must be defined in the
+            setting dictionary. Any comments can be added.
 
         Returns
         -------
@@ -78,6 +70,7 @@ class DataAcquisition(object):
         # sample period in second
         self.dur = dur
         self.file_name = None
+        self.channels = setting.get("channels", {})  # User-defined channels
         self.channel_data = [[] for _ in range(setting["num_chan"])]
 
         self.logging_initialized = False
@@ -117,24 +110,33 @@ class DataAcquisition(object):
             if not device:
                 err_str = 'Error: No DAQ device found in device ID list: '
                 err_str += ','.join(str(dev_id) for dev_id in dev_id_list)
-                raise Exception(err_str)
+                raise RuntimeError(err_str)
 
         # Add the first DAQ device to the UL with the specified board number
         ul.create_daq_device(self.board_num, device)
 
-    def _setup(self):
+    def _setup(self, channels=None):
         """Connect to necessary equipment and setup any necessary parameters.
+
+        Parameters
+        ----------
+        channels : dict, optional
+            The name of each channel that will appear in the header of the
+            csv file. The default is None.
 
         Raises
         ------
-        Exception
-            If the buffer is not successfully allocated..
+        MemoryError
+            If the buffer is not successfully allocated.
 
         Returns
         -------
         None.
 
         """
+        if channels is not None:
+            self.channels = channels
+
         # set device to "Single Ended" mode. Other optin is "Differential"
         ul.a_input_mode(self.board_num, AnalogInputMode.SINGLE_ENDED)
 
@@ -189,9 +191,7 @@ class DataAcquisition(object):
         """
         if not self.logging_initialized:
             logging.basicConfig(
-                level=logging.INFO,
-                format='%(asctime)s - %(levelname)s - %(message)s',
-                stream=sys.stdout)
+                level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', stream=sys.stdout)
             self.logger = logging.getLogger('DataAcquisition')
             self.logging_initialized = True
 
@@ -200,8 +200,6 @@ class DataAcquisition(object):
 
         Parameters
         ----------
-        board_num : int
-            The board number to assign to the board when configuring the device.
         directory : str
             Directory of saving csv file.
 
@@ -299,8 +297,7 @@ class DataAcquisition(object):
                                                write_chunk_array, prev_index,
                                                first_chunk_size)
 
-                    # Create a pointer to the location in write_chunk_array
-                    # where we want to copy the remaining data
+                    # Create a pointer to the location in write_chunk_array where we want to copy the remaining data
                     second_chunk_pointer = cast(addressof(write_chunk_array)
                                                 + first_chunk_size
                                                 * sizeof(c_double),
@@ -316,8 +313,7 @@ class DataAcquisition(object):
                         self.scan_params['memhandle'], write_chunk_array,
                         prev_index, self.scan_params['write_chunk_size'])
 
-                # Check for a buffer overrun just after copying the data from
-                # the UL buffer
+                # Check for a buffer overrun just after copying the data from the UL buffer
                 status, curr_count, _ = ul.get_status(
                     self.board_num, FunctionType.AIFUNCTION)
 
@@ -369,8 +365,8 @@ class DataAcquisition(object):
 
         Parameters
         ----------
-        directory :     str
-                        Directory path where the file should be saved.
+        directory : str
+            Directory path where the file should be saved.
 
         Returns
         -------
@@ -399,6 +395,7 @@ class DataAcquisition(object):
         -------
         None.
         """
+
         if filename is None:
             filename = self.file_name
 
@@ -409,8 +406,7 @@ class DataAcquisition(object):
                 [f'#    {key:{string_len}}: {value}'
                  for key, value in self.setting.items()])
 
-        header = [*setting,
-                  '#test\n']
+        header = [*setting, '#\n']
 
         if self.channel_data:
             time_values = [
@@ -418,9 +414,9 @@ class DataAcquisition(object):
             with open(filename, 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile)
                 csvfile.write('\n'.join(header))
-                # Generate channel labels based on channel index
-                channel_labels = [self.channel_labels[channel]
-                                  for channel in self.channel_labels]
+                # Generate channel labels based on user-defined channels
+                channel_labels = [self.channels.get(
+                    i, f"CH{i}") for i in range(self.num_chan)]
                 header = ['Time (s)'] + channel_labels
                 writer.writerow(header)
                 for i, time_val in enumerate(time_values):
@@ -440,11 +436,19 @@ if __name__ == "__main__":
                "Comment1":      "Battery is 1.5V",
                "Comment2":      "FG V_pp is 4V changed to 2V"}
 
+    # board_num = 0
+    # rate = 10000  # number of points per second per buffer
+    # # dur = 1
+    # num_chan = 3
     script_directory = os.path.dirname(os.path.abspath(sys.argv[0]))
 
     directory_path = os.path.join(script_directory, "..", "data_files")
 
     data_acquisition = DataAcquisition(**setting)
+    
+    data_acquisition._setup(channels={0: "Function Generator",  # CH0H
+                                      1: "Ground",  # CH0L
+                                      2: "Battery"})  # CH1H
 
     try:
         while True:
