@@ -189,7 +189,9 @@ class DataAcquisition(object):
         """
         if not self.logging_initialized:
             logging.basicConfig(
-                level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', stream=sys.stdout)
+                level=logging.INFO,
+                format='%(asctime)s - %(levelname)s - %(message)s',
+                stream=sys.stdout)
             self.logger = logging.getLogger('DataAcquisition')
             self.logging_initialized = True
 
@@ -297,7 +299,8 @@ class DataAcquisition(object):
                                                write_chunk_array, prev_index,
                                                first_chunk_size)
 
-                    # Create a pointer to the location in write_chunk_array where we want to copy the remaining data
+                    # Create a pointer to the location in write_chunk_array
+                    # where we want to copy the remaining data
                     second_chunk_pointer = cast(addressof(write_chunk_array)
                                                 + first_chunk_size
                                                 * sizeof(c_double),
@@ -313,7 +316,8 @@ class DataAcquisition(object):
                         self.scan_params['memhandle'], write_chunk_array,
                         prev_index, self.scan_params['write_chunk_size'])
 
-                # Check for a buffer overrun just after copying the data from the UL buffer
+                # Check for a buffer overrun just after copying the data from
+                # the UL buffer
                 status, curr_count, _ = ul.get_status(
                     self.board_num, FunctionType.AIFUNCTION)
 
@@ -397,12 +401,13 @@ class DataAcquisition(object):
         """
         if filename is None:
             filename = self.file_name
-            
+
         if self.setting:
             setting = ['# Physical settings:']
             string_len = max([len(s) for s in self.setting.keys()]) + 2
             setting.extend(
-                [f'#    {key:{string_len}}: {value}' for key, value in self.setting.items()])
+                [f'#    {key:{string_len}}: {value}'
+                 for key, value in self.setting.items()])
 
         header = [*setting,
                   '#test\n']
@@ -430,14 +435,11 @@ class DataAcquisition(object):
 
 if __name__ == "__main__":
 
-    setting = {"board_num": 0,
-               "num_chan": 3,
-               "Comment": "Battery is 1.5V, FG V_pp is 4V changed to 2V"}
+    setting = {"board_num":     0,
+               "num_chan":      3,
+               "Comment1":      "Battery is 1.5V",
+               "Comment2":      "FG V_pp is 4V changed to 2V"}
 
-    # board_num = 0
-    # rate = 10000  # number of points per second per buffer
-    # # dur = 1
-    # num_chan = 3
     script_directory = os.path.dirname(os.path.abspath(sys.argv[0]))
 
     directory_path = os.path.join(script_directory, "..", "data_files")
