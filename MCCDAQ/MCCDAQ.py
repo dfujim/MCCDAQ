@@ -357,8 +357,6 @@ class MCCDAQ(object):
         if self.scan_params['memhandle']:
             ul.win_buf_free(self.scan_params['memhandle'])
 
-        if use_device_detection:
-            ul.release_daq_device(self.board_num)
 
     def generate_file_name(self, directory):
         """Automatically generates file name based on the date of creation.
