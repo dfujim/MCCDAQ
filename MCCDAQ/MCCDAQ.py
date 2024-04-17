@@ -115,7 +115,7 @@ class MCCDAQ(object):
         # Add the first DAQ device to the UL with the specified board number
         ul.create_daq_device(self.board_num, device)
 
-    def _setup(self, channels=None):
+    def setup(self, channels=None):
         """Connect to necessary equipment and setup any necessary parameters.
 
         Parameters
@@ -191,11 +191,13 @@ class MCCDAQ(object):
         """
         if not self.logging_initialized:
             logging.basicConfig(
-                level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', stream=sys.stdout)
+                level=logging.INFO,
+                format='%(asctime)s - %(levelname)s - %(message)s',
+                stream=sys.stdout)
             self.logger = logging.getLogger('DataAcquisition')
             self.logging_initialized = True
 
-    def _start(self, directory):
+    def start(self, directory):
         """Start data acquisition.
 
         Parameters
@@ -211,13 +213,13 @@ class MCCDAQ(object):
         self.stop_event.clear()  # Reset stop event
         self.generate_file_name(directory)
         self._device_detection(self.board_num)
-        self._setup()
+        self.setup()
         self._initialize_logging()
         self.logger.info("\n\n Starting data acquisition...\n")
         self.thread = threading.Thread(target=self._acquire_data)
         self.thread.start()
 
-    def _stop(self):
+    def stop(self):
         """Stop data acquisition.
 
         Returns
@@ -357,7 +359,6 @@ class MCCDAQ(object):
         if self.scan_params['memhandle']:
             ul.win_buf_free(self.scan_params['memhandle'])
 
-
     def generate_file_name(self, directory):
         """Automatically generates file name based on the date of creation.
 
@@ -378,7 +379,7 @@ class MCCDAQ(object):
         file_path = os.path.join(directory, f"data_{current_datetime}.csv")
         self.file_name = file_path
 
-    def _to_csv(self, filename=None, **setting):
+    def to_csv(self, filename=None, **setting):
         """Save the whole data in a csv file.
 
         Parameters
@@ -429,40 +430,36 @@ class MCCDAQ(object):
 
 if __name__ == "__main__":
 
-    setting = {"board_num":     0,
-               "num_chan":      3,
-               "Comment1":      "Battery is 1.5V",
-               "Comment2":      "FG V_pp is 4V changed to 2V"}
+    setting = {"board_num":      0,
+                "num_chan":      2,
+                "Comment1":      "Battery is 1.5V",
+                "Comment2":      "FG V_pp is 4V changed to 2V"}
 
-    # board_num = 0
-    # rate = 10000  # number of points per second per buffer
-    # # dur = 1
-    # num_chan = 3
     script_directory = os.path.dirname(os.path.abspath(sys.argv[0]))
 
     directory_path = os.path.join(script_directory, "..", "data_files")
 
     data_acquisition = MCCDAQ(**setting)
     
-    data_acquisition._setup(channels={0: "Function Generator",  # CH0H
-                                      1: "Ground",  # CH0L
-                                      2: "Battery"})  # CH1H
+    data_acquisition.setup(channels={0: "Potmet",  # CH0H
+                                     1: "Ground",  # CH0L
+                                     })            # CH1H
 
     try:
         while True:
-            command = input("\nEnter command (start/stop/exit): ")
-            if command.lower() == "start":
-                data_acquisition._start(directory_path)
-            elif command.lower() == "stop":
-                data_acquisition._stop()
-            elif command.lower() == "exit":
+            command = input("\nEnter command (start(s)/ pause(p)/ exit(e)): ")
+            if command.lower() == "s":
+                data_acquisition.start(directory_path)
+            elif command.lower() == "p":
+                data_acquisition.stop()
+            elif command.lower() == "e":
                 break
             else:
-                print("Invalid command. Please enter 'start' or 'stop'.")
+                print("Invalid command. Please enter 's' or 'p' or 'e'.")
 
-        data_acquisition._to_csv(**setting)
+        data_acquisition.to_csv(**setting)
 
     except KeyboardInterrupt:
         print("\nReceived KeyboardInterrupt.\
               Stopping acquisition and exiting...")
-        data_acquisition._stop()
+        data_acquisition.stop()
