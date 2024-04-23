@@ -20,6 +20,8 @@ import sys
 import datetime
 import logging
 import threading
+import numpy as np
+import pandas as pd
 
 
 class MCCDAQ(object):
@@ -379,9 +381,27 @@ class MCCDAQ(object):
         file_path = os.path.join(directory, f"data_{current_datetime}.csv")
         self.file_name = file_path
 
+    def _to_df(self):
+        # Create a time array
+        num_samples = len(self.channel_data[0])  # Assuming all channels have the same length
+        sample_period = 1 / self.rate
+        time_array = np.arange(0, num_samples * sample_period, sample_period)
+    
+        # Create channel labels
+        channel_labels = [self.channels.get(
+            i, f"CH{i}") for i in range(self.num_chan)]
+    
+        # Create DataFrame
+        data_dict = {"Time (s)": time_array}
+        for i, label in enumerate(channel_labels):
+            data_dict[label] = self.channel_data[i]
+        
+        self.df = pd.DataFrame(data_dict)
+
+    
     def to_csv(self, filename=None, **setting):
         """Save the whole data in a csv file.
-
+    
         Parameters
         ----------
         filename : str, optional
@@ -389,43 +409,32 @@ class MCCDAQ(object):
             the automatically generated file name.
         setting : dict
             Additional settings to include in the header.
-
+    
         Returns
         -------
         None.
         """
-
         if filename is None:
             filename = self.file_name
-
-        if self.setting:
-            setting = ['# Physical settings:']
-            string_len = max([len(s) for s in self.setting.keys()]) + 2
-            setting.extend(
-                [f'#    {key:{string_len}}: {value}'
-                 for key, value in self.setting.items()])
-
-        header = [*setting, '#\n']
-
-        if self.channel_data:
-            time_values = [
-                i / self.rate for i in range(len(self.channel_data[0]))]
+    
+        header = ['# Physical settings:']
+        string_len = max([len(s) for s in setting.keys()]) + 2
+        header.extend(
+            [f'#    {key:{string_len}}: {value}'
+             for key, value in setting.items()])
+        header.append('#\n')
+    
+        self.to_df()  # Convert channel data to DataFrame
+    
+        if hasattr(self, 'df') and not self.df.empty:
             with open(filename, 'w', newline='') as csvfile:
-                writer = csv.writer(csvfile)
                 csvfile.write('\n'.join(header))
-                # Generate channel labels based on user-defined channels
-                channel_labels = [self.channels.get(
-                    i, f"CH{i}") for i in range(self.num_chan)]
-                header = ['Time (s)'] + channel_labels
-                writer.writerow(header)
-                for i, time_val in enumerate(time_values):
-                    # Write data for each channel at corresponding time
-                    row = [time_val] + [channel_data[i]
-                                        for channel_data in self.channel_data]
-                    writer.writerow(row)
+                self.df.to_csv(csvfile, index=False)  # Save DataFrame to CSV
             print(f"Data saved to {filename} successfully.")
         else:
             print("No data available to save.")
+
+
 
 
 if __name__ == "__main__":
@@ -442,8 +451,8 @@ if __name__ == "__main__":
     data_acquisition = MCCDAQ(**setting)
     
     data_acquisition.setup(channels={0: "Potmet",  # CH0H
-                                     1: "Ground",  # CH0L
-                                     })            # CH1H
+                                      1: "Ground",  # CH0L
+                                      })            # CH1H
 
     try:
         while True:
