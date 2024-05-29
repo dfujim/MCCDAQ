@@ -7,7 +7,7 @@ Created on Sun Mar 24 18:51:06 2024
 @author: Maedeh Lavvaf
 """
 
-from __future__ import absolute_import, division, print_function
+from __future__ import absolute_import, division, print_function, annotations 
 # from builtins import *
 from ctypes import c_double, cast, POINTER, addressof, sizeof
 from time import sleep
