@@ -18,6 +18,7 @@ license = {file = "LICENSE"}
 requires-python = ">=3.7"
 dependencies = [
     'time',
+    'csv',
     'mcculw',
     'logging',
     'threading',
