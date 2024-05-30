@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "E1608"
 version = '0.1.2'
 authors  = [{name="Maedeh Lavvaf", email="mdhlvf@gmail.com" }]
-description = "Python API for MCCDAQ devices used by the TUCAN collaboration."
+description = "Python API for E1608 devices used by the TUCAN collaboration."
 readme = "README.md"
 classifiers = [
         "Programming Language :: Python :: 3",
@@ -27,3 +27,6 @@ dependencies = [
 [project.urls]
 "Homepage" = "https://github.com/mlavvaf/MCCDAQ"
 "Bug Tracker" = "https://github.com/mlavvaf/MCCDAQ/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["E1608"]
