@@ -1,3 +1,3 @@
-__all__ = ['MCCDAQ']
+__all__ = ['E1608']
 
-from .MCCDAQ import MCCDAQ
+from .E1608 import E1608
