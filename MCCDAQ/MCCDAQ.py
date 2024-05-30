@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 
-class MCCDAQ(object):
+class E1608(object):
 
     def __init__(self, rate=10000, dur=1, **setting):
         """Initialize parameters.
@@ -448,7 +448,7 @@ if __name__ == "__main__":
 
     directory_path = os.path.join(script_directory, "..", "data_files")
 
-    data_acquisition = MCCDAQ(**setting)
+    data_acquisition = E1608(**setting)
     
     data_acquisition.setup(channels={0: "Potmet",  # CH0H
                                       1: "Ground",  # CH0L
