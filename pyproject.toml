@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "E1608"
-version = '0.1.2'
+version = '0.1.3'
 authors  = [{name="Maedeh Lavvaf", email="mdhlvf@gmail.com" }]
 description = "Python API for E1608 devices used by the TUCAN collaboration."
 readme = "README.md"
