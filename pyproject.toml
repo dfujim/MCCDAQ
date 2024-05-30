@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "MCCDAQ"
+name = "MCCDAQE"
 version = '0.1.2'
 authors  = [{name="Maedeh Lavvaf", email="mdhlvf@gmail.com" }]
 description = "Python API for MCCDAQ devices used by the TUCAN collaboration."
