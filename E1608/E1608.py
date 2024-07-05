@@ -1,13 +1,13 @@
 
 """
-Scans a range of A/D Input Channels from MCCDAQ E-1608 and stores the sample data in a file. 
+Scans a range of A/D Input Channels from MCCDAQ E-1608 and stores the sample data in a file.
 
 Created on Sun Mar 24 18:51:06 2024
 
 @author: Maedeh Lavvaf
 """
 
-from __future__ import absolute_import, division, print_function, annotations 
+from __future__ import absolute_import, division, print_function, annotations
 # from builtins import *
 from ctypes import c_double, cast, POINTER, addressof, sizeof
 from time import sleep
@@ -87,7 +87,7 @@ class E1608(object):
         Parameters
         ----------
         board_num :     int
-                        The board number to assign to the board when 
+                        The board number to assign to the board when
                         configuring the device.
 
         dev_id_list :   list[int], optional
@@ -385,23 +385,28 @@ class E1608(object):
         # Create a time array
         num_samples = len(self.channel_data[0])  # Assuming all channels have the same length
         sample_period = 1 / self.rate
-        time_array = np.arange(0, num_samples * sample_period, sample_period)
-    
+        time_array = np.arange(0, num_samples)*sample_period
+
         # Create channel labels
         channel_labels = [self.channels.get(
             i, f"CH{i}") for i in range(self.num_chan)]
-    
-        # Create DataFrame
+
+        # Create dict for DataFrame
         data_dict = {"Time (s)": time_array}
         for i, label in enumerate(channel_labels):
             data_dict[label] = self.channel_data[i]
-        
+
+        # get shortest list and trim to length
+        len_shortest = min([len(ch) for ch in data_dict.values])
+        for key, val in data_dict.items():
+            data_dict[key] = val[:len_shortest]
+
+        # make dataframe
         self.df = pd.DataFrame(data_dict)
 
-    
-    def to_csv(self, filename=None, **setting):
+    def to_csv(self, filename=None, downsample=1, **setting):
         """Save the whole data in a csv file.
-    
+
         Parameters
         ----------
         filename : str, optional
@@ -409,23 +414,25 @@ class E1608(object):
             the automatically generated file name.
         setting : dict
             Additional settings to include in the header.
-    
+
         Returns
         -------
         None.
         """
         if filename is None:
             filename = self.file_name
-    
+
         header = ['# Physical settings:']
         string_len = max([len(s) for s in setting.keys()]) + 2
         header.extend(
-            [f'#    {key:{string_len}}: {value}'
-             for key, value in setting.items()])
+            [f'#    {key:{string_len}}: {value}' for key, value in setting.items()])
         header.append('#\n')
-    
+
         self.to_df()  # Convert channel data to DataFrame
-    
+
+        # downsample
+        self.df = self.df.loc[::downsample]
+
         if hasattr(self, 'df') and not self.df.empty:
             with open(filename, 'w', newline='') as csvfile:
                 csvfile.write('\n'.join(header))
@@ -449,7 +456,7 @@ if __name__ == "__main__":
     directory_path = os.path.join(script_directory, "..", "data_files")
 
     data_acquisition = E1608(**setting)
-    
+
     data_acquisition.setup(channels={0: "Potmet",  # CH0H
                                       1: "Ground",  # CH0L
                                       })            # CH1H
