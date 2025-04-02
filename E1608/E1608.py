@@ -26,20 +26,29 @@ import pandas as pd
 
 class E1608(object):
 
-    def __init__(self, rate=10000, dur=1, **setting):
+    def __init__(self, channels, rate=10000, dur=1, board_num=0):
         """Initialize parameters.
 
         Parameters
         ----------
+        
+        channels: dict, required
+            List of channels to read from. key: ch number, value: label
+            0 = CH0H
+            1 = CH1H
+            etc
+            Connect all low channels to ground
+        
         rate : int, optional
             Sample rate in Samples/second. The default is 10000.
 
         dur : int, optional
             Total time of taking every chunk of data. The default is 1.
 
-        **setting : dict
-            Board number and number of channels must be defined in the
-            setting dictionary. Any comments can be added.
+        board_num: int, required
+            Index of board to select in the case of multiple boards detected on network
+            
+
 
         Returns
         -------
@@ -47,14 +56,13 @@ class E1608(object):
 
         """
         # ******* device info *******
-        self.setting = setting
-        self.board_num = setting["board_num"]
+        self.board_num = board_num
         self.dev_id_list = []
         self.low_chan = 0
         self.high_chan = None
 
         # total number of a ai channels
-        self.num_chan = setting["num_chan"]
+        self.num_chan = len(channels)
 
         # ******* sampling requirements *******
 
@@ -72,12 +80,15 @@ class E1608(object):
         # sample period in second
         self.dur = dur
         self.file_name = None
-        self.channels = setting.get("channels", {})  # User-defined channels
-        self.channel_data = [[] for _ in range(setting["num_chan"])]
+        self.channels = channels  # User-defined channels
+        self.channel_data = [[] for _ in range(len(channels)*2)]
 
-        self.logging_initialized = False
+        # self.logging_initialized = False
         self.thread = None
         self.stop_event = threading.Event()
+        
+        # run setup and device detection
+        self._device_detection(self.board_num)
 
     def _device_detection(self, dev_id_list=None):
         """Add the first available device to the UL.
@@ -101,11 +112,14 @@ class E1608(object):
             raise IOError('Error: No DAQ devices found')
 
         print('Found', len(devices), 'DAQ device(s):')
-        for device in devices:
-            print('  ', device.product_name, ' (', device.unique_id, ') - ',
-                  'Device ID = ', device.product_id, sep='')
-
-        device = devices[0]
+        for i, device in enumerate(devices):
+            if i == self.board_num:
+                suffix = ' [selected]'
+            else:
+                suffix = ''
+            print(f'\t{device.product_name} ({device.unique_id}) - Device ID = {device.product_id}{suffix}')
+            
+        device = devices[self.board_num]
         if dev_id_list:
             device = next((device for device in devices
                            if device.product_id in dev_id_list), None)
@@ -117,14 +131,8 @@ class E1608(object):
         # Add the first DAQ device to the UL with the specified board number
         ul.create_daq_device(self.board_num, device)
 
-    def setup(self, channels=None):
+    def setup(self):
         """Connect to necessary equipment and setup any necessary parameters.
-
-        Parameters
-        ----------
-        channels : dict, optional
-            The name of each channel that will appear in the header of the
-            csv file. The default is None.
 
         Raises
         ------
@@ -136,15 +144,13 @@ class E1608(object):
         None.
 
         """
-        if channels is not None:
-            self.channels = channels
 
         # set device to "Single Ended" mode. Other optin is "Differential"
         ul.a_input_mode(self.board_num, AnalogInputMode.SINGLE_ENDED)
 
         # The number of high channel on the board. (total number of using
         # channel -1 since it starts from 0)
-        self.high_chan = self.num_chan - 1
+        self.high_chan = self.num_chan*2 - 1
         # self.high_chan = 1
 
         # buffer sized to hold one second of data.
@@ -152,7 +158,7 @@ class E1608(object):
         points_per_channel = max(self.rate * self.dur, 10)
 
         # Total points
-        ul_buffer_count = points_per_channel * self.num_chan
+        ul_buffer_count = points_per_channel * self.num_chan*2
 
         # Write the UL buffer to the file num_buffers_to_write times.
         # points_to_write = ul_buffer_count * self.num_buffers_to_write
@@ -199,13 +205,16 @@ class E1608(object):
             self.logger = logging.getLogger('DataAcquisition')
             self.logging_initialized = True
 
-    def start(self, directory):
-        """Start data acquisition.
+    def clear(self):
+        """Reset all saved data"""
+        try:
+            del self.df
+        except AttributeError:
+            pass
+        self.channel_data = [[] for _ in range(len(self.channels)*2)]
 
-        Parameters
-        ----------
-        directory : str
-            Directory of saving csv file.
+    def start(self):
+        """Start data acquisition.
 
         Returns
         -------
@@ -213,11 +222,8 @@ class E1608(object):
 
         """
         self.stop_event.clear()  # Reset stop event
-        self.generate_file_name(directory)
-        self._device_detection(self.board_num)
+        self.clear()
         self.setup()
-        self._initialize_logging()
-        self.logger.info("\n\n Starting data acquisition...\n")
         self.thread = threading.Thread(target=self._acquire_data)
         self.thread.start()
 
@@ -231,7 +237,7 @@ class E1608(object):
         """
         self.stop_event.set()
         self.thread.join()
-        self.logger.info("\n\n Data acquisition stopped.")
+        self.to_df()
 
     def _acquire_data(self):
         """Start the scan and acquire data.
@@ -241,8 +247,6 @@ class E1608(object):
         None.
 
         """
-        use_device_detection = True
-
         ul.a_in_scan(self.board_num, self.low_chan, self.high_chan,
                      self.scan_params['ul_buffer_count'],
                      self.rate, self.scan_params['ai_range'],
@@ -350,7 +354,7 @@ class E1608(object):
 
                 # if prev_count >= self.scan_params['points_to_write']:
                 #     break
-                print('.', end='')
+                # print('.', end='')
             else:
                 # Wait a short amount of time for more data to be acquired.
                 sleep(0.1)
@@ -381,7 +385,7 @@ class E1608(object):
         file_path = os.path.join(directory, f"data_{current_datetime}.csv")
         self.file_name = file_path
 
-    def _to_df(self):
+    def to_df(self):
         # Create a time array
         num_samples = len(self.channel_data[0])  # Assuming all channels have the same length
         sample_period = 1 / self.rate
@@ -394,15 +398,16 @@ class E1608(object):
         # Create dict for DataFrame
         data_dict = {"Time (s)": time_array}
         for i, label in enumerate(channel_labels):
-            data_dict[label] = self.channel_data[i]
+            data_dict[label] = self.channel_data[i*2]
 
         # get shortest list and trim to length
-        len_shortest = min([len(ch) for ch in data_dict.values])
+        len_shortest = min([len(ch) for ch in data_dict.values()])
         for key, val in data_dict.items():
             data_dict[key] = val[:len_shortest]
 
         # make dataframe
-        self.df = pd.DataFrame(data_dict)
+        self.df = pd.DataFrame(data_dict).set_index('Time (s)')
+        return self.df
 
     def to_csv(self, filename=None, downsample=1, **setting):
         """Save the whole data in a csv file.
@@ -423,9 +428,8 @@ class E1608(object):
             filename = self.file_name
 
         header = ['# Physical settings:']
-        string_len = max([len(s) for s in setting.keys()]) + 2
         header.extend(
-            [f'#    {key:{string_len}}: {value}' for key, value in setting.items()])
+            [f'#    {key}: {value}' for key, value in setting.items()])
         header.append('#\n')
 
         self.to_df()  # Convert channel data to DataFrame
@@ -458,8 +462,8 @@ if __name__ == "__main__":
     data_acquisition = E1608(**setting)
 
     data_acquisition.setup(channels={0: "Potmet",  # CH0H
-                                      1: "Ground",  # CH0L
-                                      })            # CH1H
+                                     1: "Ground",  # CH0L
+                                    })            # CH1H
 
     try:
         while True:
